@@ -60,10 +60,19 @@ public enum OpenAIDashboardWebsiteDataStore {
             .appendingPathComponent("WebsiteDataStore", isDirectory: true)
     }
 
+    /// Custom build: named stores live in UUID-named folders under `namedStoreDirectory`, so list those instead of
+    /// awaiting `WKWebsiteDataStore.allDataStoreIdentifiers`. When CodexBar is built with the macOS 26.5 SDK
+    /// (Xcode 26.6, Swift 6.3) and run on macOS 26.3, that async getter crashes resuming its continuation
+    /// (SIGSEGV in `CheckedContinuation.resume`), which the packaging smoke check catches.
+    static func identifiersOnDisk(in directory: URL = OpenAIDashboardWebsiteDataStore.namedStoreDirectory) -> [UUID] {
+        let entries = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+        return entries.compactMap { UUID(uuidString: $0) }.sorted { $0.uuidString < $1.uuidString }
+    }
+
     static func existingIdentifiers(
         in directory: URL = Self.namedStoreDirectory,
         initialize: () -> Void = { _ = WKWebsiteDataStore.default() },
-        enumerate: () async -> [UUID] = { await WKWebsiteDataStore.allDataStoreIdentifiers }) async -> [UUID]
+        enumerate: () async -> [UUID] = { OpenAIDashboardWebsiteDataStore.identifiersOnDisk() }) async -> [UUID]
     {
         guard let entries = try? FileManager.default.contentsOfDirectory(atPath: directory.path),
               entries.contains(where: { UUID(uuidString: $0) != nil }) else { return [] }
