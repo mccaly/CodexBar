@@ -570,8 +570,13 @@ strip_release_binary "$APP/Contents/Helpers/CodexBarCLI"
 # Watchdog helper: ensures `claude` probes die when CodexBar crashes/gets killed.
 install_binary "CodexBarClaudeWatchdog" "$APP/Contents/Helpers/CodexBarClaudeWatchdog"
 strip_release_binary "$APP/Contents/Helpers/CodexBarClaudeWatchdog"
-install_widget_extension
-strip_release_binary "$APP/Contents/PlugIns/CodexBarWidget.appex/Contents/MacOS/CodexBarWidget"
+# Custom build: CODEXBAR_SKIP_WIDGET=1 packages without the desktop widget (it needs a fully set-up Xcode).
+if [[ "${CODEXBAR_SKIP_WIDGET:-0}" == "1" ]]; then
+  echo "Skipping CodexBarWidget extension (CODEXBAR_SKIP_WIDGET=1)." >&2
+else
+  install_widget_extension
+  strip_release_binary "$APP/Contents/PlugIns/CodexBarWidget.appex/Contents/MacOS/CodexBarWidget"
+fi
 
 swiftpm_bin_path "${ARCH_LIST[0]}" PREFERRED_BUILD_DIR
 
