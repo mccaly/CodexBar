@@ -155,12 +155,10 @@ enum IconRenderer {
         let quotaLayoutPolicy = quotaLayoutPolicy ?? .style(style)
         let shouldCache = blink <= 0.0001 && wiggle <= 0.0001 && tilt <= 0.0001
         let render = {
-            self.renderImage {
-                // Keep monochrome template icons; Claude uses subtle shape cues only.
-                let baseFill = NSColor.labelColor
+            // Custom build: full-colour icon, each bar tinted by quota remaining (see remainingTint).
+            self.renderImage(template: false) {
                 let trackFillAlpha: CGFloat = stale ? 0.18 : 0.28
                 let trackStrokeAlpha: CGFloat = stale ? 0.28 : 0.44
-                let fillColor = baseFill.withAlphaComponent(stale ? 0.55 : 1.0)
 
                 let barWidthPx = 30 // 15 pt at 2×, uses the slot better without touching edges.
                 let barXPx = (Self.canvasPx - barWidthPx) / 2
@@ -180,6 +178,9 @@ enum IconRenderer {
                     drawTrackFill: Bool = true,
                     warpEyesFilled: Bool = false)
                 {
+                    // Custom build: the whole bar (track, outline, fill, critter details) uses its threshold colour.
+                    let baseFill = Self.remainingTint(remaining)
+                    let fillColor = baseFill.withAlphaComponent(stale ? 0.55 : 1.0)
                     let rect = rectPx.rect()
                     // Claude reads better as a blockier critter; Codex stays as a capsule.
                     // Warp uses small corner radius for rounded rectangle (matching logo style)
@@ -1065,7 +1066,9 @@ enum IconRenderer {
         attachesToProminentMeter: Bool)
     {
         guard indicator.hasIssue else { return }
-        let color = NSColor.labelColor
+        // Custom build: the meter icon is no longer a template image, so use a grey that reads on light and dark
+        // menu bars instead of labelColor (which would resolve against the app, not the menu bar).
+        let color = NSColor.systemGray
 
         switch indicator {
         case .minor, .maintenance:
@@ -1135,7 +1138,17 @@ enum IconRenderer {
         CGRect(x: self.snap(x), y: self.snap(y), width: self.snap(width), height: self.snap(height))
     }
 
-    private static func renderImage(_ draw: () -> Void) -> NSImage {
+    /// Custom build: colour for a meter bar from the percentage of quota left.
+    /// 50% or more is green, 25% up to 50% is orange, under 25% is red. A lane with no data is a neutral grey
+    /// that reads on both light and dark menu bars.
+    static func remainingTint(_ remaining: Double?) -> NSColor {
+        guard let remaining else { return .systemGray }
+        if remaining >= 50 { return .systemGreen }
+        if remaining >= 25 { return .systemOrange }
+        return .systemRed
+    }
+
+    private static func renderImage(template: Bool = true, _ draw: () -> Void) -> NSImage {
         let image = NSImage(size: Self.outputSize)
 
         if let rep = NSBitmapImageRep(
@@ -1166,7 +1179,7 @@ enum IconRenderer {
             image.unlockFocus()
         }
 
-        image.isTemplate = true
+        image.isTemplate = template
         return image
     }
 }
